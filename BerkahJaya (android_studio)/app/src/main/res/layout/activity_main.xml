@@ -76,6 +76,48 @@
         android:background="#FFFFFF"
         android:layout_marginTop="20dp" />
 
+    <!-- Filter Stok (BARU) -->
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:orientation="horizontal"
+        android:gravity="center_vertical">
+
+        <EditText
+            android:id="@+id/etMinStok"
+            android:layout_width="0dp"
+            android:layout_height="46dp"
+            android:layout_weight="1"
+            android:hint="Stok min"
+            android:padding="10dp"
+            android:inputType="number"
+            android:singleLine="true"
+            android:importantForAutofill="no"
+            android:background="#FFFFFF" />
+
+        <EditText
+            android:id="@+id/etMaxStok"
+            android:layout_width="0dp"
+            android:layout_height="46dp"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
+            android:hint="Stok max"
+            android:padding="10dp"
+            android:inputType="number"
+            android:singleLine="true"
+            android:importantForAutofill="no"
+            android:background="#FFFFFF" />
+
+        <Button
+            android:id="@+id/btnResetFilter"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_marginStart="8dp"
+            android:text="Reset" />
+
+    </LinearLayout>
+
     <!-- Header Daftar Produk -->
     <TextView
         android:layout_width="match_parent"
@@ -84,7 +126,7 @@
         android:textSize="18sp"
         android:textStyle="bold"
         android:textColor="#172554"
-        android:layout_marginTop="20dp"
+        android:layout_marginTop="16dp"
         android:layout_marginBottom="10dp" />
 
     <!-- Product List -->

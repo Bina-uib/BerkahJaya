@@ -1,11 +1,10 @@
-
 package com.example.berkahjaya;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.text.Editable;
 import android.text.TextWatcher;
 import android.util.Log;
-import android.view.ViewGroup;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.LinearLayout;
@@ -29,7 +28,10 @@ public class MainActivity extends AppCompatActivity {
     private RecyclerView rvProducts;
     private TextView tvTotalProduk;
     private EditText etSearch;
+    private EditText etMinStok, etMaxStok;
     private Button btnAddProduct;
+    private Button btnResetFilter;
+    private Button btnCategories, btnSuppliers;
 
     private ProductAdapter adapter;
     private ApiService apiService;
@@ -44,7 +46,12 @@ public class MainActivity extends AppCompatActivity {
         rvProducts = findViewById(R.id.rvProducts);
         tvTotalProduk = findViewById(R.id.tvTotalProduk);
         etSearch = findViewById(R.id.etSearch);
+        etMinStok = findViewById(R.id.etMinStok);
+        etMaxStok = findViewById(R.id.etMaxStok);
+        btnResetFilter = findViewById(R.id.btnResetFilter);
         btnAddProduct = findViewById(R.id.btnAddProduct);
+        btnCategories = findViewById(R.id.btnCategories);
+        btnSuppliers = findViewById(R.id.btnSuppliers);
 
         apiService = RetrofitClient.getApiService();
 
@@ -67,27 +74,40 @@ public class MainActivity extends AppCompatActivity {
         rvProducts.setAdapter(adapter);
 
         btnAddProduct.setOnClickListener(v -> showProductDialog(null));
+        btnCategories.setOnClickListener(v ->
+                startActivity(new Intent(MainActivity.this, CategoryActivity.class)));
 
-        etSearch.addTextChangedListener(new TextWatcher() {
+        btnSuppliers.setOnClickListener(v ->
+                startActivity(new Intent(MainActivity.this, SupplierActivity.class)));
+
+        // Pencarian + filter stok: setiap ketikan langsung menyaring daftar
+        TextWatcher filterWatcher = new TextWatcher() {
             @Override
-            public void beforeTextChanged(
-                    CharSequence s, int start, int count, int after) {}
+            public void beforeTextChanged(CharSequence s, int start, int count, int after) {}
 
             @Override
-            public void onTextChanged(
-                    CharSequence s, int start, int before, int count) {
-                filterProducts(s.toString());
+            public void onTextChanged(CharSequence s, int start, int before, int count) {
+                applyFilters();
             }
 
             @Override
             public void afterTextChanged(Editable s) {}
+        };
+
+        etSearch.addTextChangedListener(filterWatcher);
+        etMinStok.addTextChangedListener(filterWatcher);
+        etMaxStok.addTextChangedListener(filterWatcher);
+
+        btnResetFilter.setOnClickListener(v -> {
+            etSearch.setText("");
+            etMinStok.setText("");
+            etMaxStok.setText("");
         });
 
         loadProducts();
     }
 
     // READ: Mengambil produk dari API
-
     private void loadProducts() {
 
         apiService.getProducts().enqueue(new Callback<ProductResponse>() {
@@ -100,19 +120,16 @@ public class MainActivity extends AppCompatActivity {
                 if (response.isSuccessful() && response.body() != null) {
 
                     ProductResponse result = response.body();
-                    Log.d("CEK_DATA", new com.google.gson.Gson()
-                            .toJson(result));
+                    Log.d("CEK_DATA", new com.google.gson.Gson().toJson(result));
 
                     if (result.isSuccess() && result.getData() != null) {
 
                         productList.clear();
                         productList.addAll(result.getData());
 
-                        adapter.updateData(productList);
+                        applyFilters();
 
-                        tvTotalProduk.setText(
-                                productList.size() + " Produk"
-                        );
+                        tvTotalProduk.setText(productList.size() + " Produk");
 
                         Toast.makeText(
                                 MainActivity.this,
@@ -138,10 +155,7 @@ public class MainActivity extends AppCompatActivity {
             }
 
             @Override
-            public void onFailure(
-                    Call<ProductResponse> call,
-                    Throwable t) {
-
+            public void onFailure(Call<ProductResponse> call, Throwable t) {
                 Toast.makeText(
                         MainActivity.this,
                         "Koneksi gagal: " + t.getMessage(),
@@ -151,23 +165,40 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
+    // SEARCH + FILTER: nama produk dan rentang stok
+    private void applyFilters() {
 
-    // SEARCH: Mencari produk berdasarkan nama
-    private void filterProducts(String keyword) {
+        String keyword = etSearch.getText().toString().trim().toLowerCase();
+        Integer minStok = parseIntOrNull(etMinStok);
+        Integer maxStok = parseIntOrNull(etMaxStok);
 
         List<Product> filtered = new ArrayList<>();
 
         for (Product product : productList) {
-            if (product.getNama_produk() != null
-                    && product.getNama_produk()
-                    .toLowerCase()
-                    .contains(keyword.toLowerCase())) {
 
+            boolean cocokNama = keyword.isEmpty()
+                    || (product.getNama_produk() != null
+                    && product.getNama_produk().toLowerCase().contains(keyword));
+
+            boolean cocokMin = minStok == null || product.getStok() >= minStok;
+            boolean cocokMax = maxStok == null || product.getStok() <= maxStok;
+
+            if (cocokNama && cocokMin && cocokMax) {
                 filtered.add(product);
             }
         }
 
         adapter.updateData(filtered);
+    }
+
+    private Integer parseIntOrNull(EditText et) {
+        String t = et.getText().toString().trim();
+        if (t.isEmpty()) return null;
+        try {
+            return Integer.parseInt(t);
+        } catch (NumberFormatException e) {
+            return null;
+        }
     }
 
     // CREATE dan UPDATE: Form tambah/edit produk
@@ -191,9 +222,7 @@ public class MainActivity extends AppCompatActivity {
 
         EditText etStok = new EditText(this);
         etStok.setHint("Jumlah stok");
-        etStok.setInputType(
-                android.text.InputType.TYPE_CLASS_NUMBER
-        );
+        etStok.setInputType(android.text.InputType.TYPE_CLASS_NUMBER);
 
         layout.addView(etNama);
         layout.addView(etHarga);
@@ -220,14 +249,9 @@ public class MainActivity extends AppCompatActivity {
                         String hargaText = etHarga.getText().toString().trim();
                         String stokText = etStok.getText().toString().trim();
 
-                        if (nama.isEmpty()
-                                || hargaText.isEmpty()
-                                || stokText.isEmpty()) {
-                            Toast.makeText(
-                                    this,
-                                    "Semua kolom wajib diisi",
-                                    Toast.LENGTH_SHORT
-                            ).show();
+                        if (nama.isEmpty() || hargaText.isEmpty() || stokText.isEmpty()) {
+                            Toast.makeText(this, "Semua kolom wajib diisi",
+                                    Toast.LENGTH_SHORT).show();
                             return;
                         }
 
@@ -236,21 +260,13 @@ public class MainActivity extends AppCompatActivity {
                             int stok = Integer.parseInt(stokText);
 
                             if (harga < 0 || stok < 0) {
-                                Toast.makeText(
-                                        this,
-                                        "Harga dan stok tidak boleh negatif",
-                                        Toast.LENGTH_SHORT
-                                ).show();
+                                Toast.makeText(this, "Harga dan stok tidak boleh negatif",
+                                        Toast.LENGTH_SHORT).show();
                                 return;
                             }
 
                             if (isEdit) {
-                                updateProduct(
-                                        product.getId(),
-                                        nama,
-                                        harga,
-                                        stok
-                                );
+                                updateProduct(product.getId(), nama, harga, stok);
                             } else {
                                 addProduct(nama, harga, stok);
                             }
@@ -258,11 +274,8 @@ public class MainActivity extends AppCompatActivity {
                             dialog.dismiss();
 
                         } catch (NumberFormatException e) {
-                            Toast.makeText(
-                                    this,
-                                    "Harga atau stok tidak valid",
-                                    Toast.LENGTH_SHORT
-                            ).show();
+                            Toast.makeText(this, "Harga atau stok tidak valid",
+                                    Toast.LENGTH_SHORT).show();
                         }
                     });
         });
@@ -285,35 +298,27 @@ public class MainActivity extends AppCompatActivity {
                                 && response.body() != null
                                 && response.body().isSuccess()) {
 
-                            Toast.makeText(
-                                    MainActivity.this,
+                            Toast.makeText(MainActivity.this,
                                     "Produk berhasil ditambahkan",
-                                    Toast.LENGTH_SHORT
-                            ).show();
-
+                                    Toast.LENGTH_SHORT).show();
                             loadProducts();
 
                         } else {
-                            Toast.makeText(
-                                    MainActivity.this,
+                            Toast.makeText(MainActivity.this,
                                     "Gagal menambahkan produk",
-                                    Toast.LENGTH_SHORT
-                            ).show();
+                                    Toast.LENGTH_SHORT).show();
                         }
                     }
 
                     @Override
-                    public void onFailure(
-                            Call<ProductResponse> call,
-                            Throwable t) {
+                    public void onFailure(Call<ProductResponse> call, Throwable t) {
                         showConnectionError(t);
                     }
                 });
     }
 
     // UPDATE
-    private void updateProduct(
-            int id, String nama, double harga, int stok) {
+    private void updateProduct(int id, String nama, double harga, int stok) {
 
         apiService.updateProduct(id, nama, harga, stok)
                 .enqueue(new Callback<ProductResponse>() {
@@ -327,27 +332,20 @@ public class MainActivity extends AppCompatActivity {
                                 && response.body() != null
                                 && response.body().isSuccess()) {
 
-                            Toast.makeText(
-                                    MainActivity.this,
+                            Toast.makeText(MainActivity.this,
                                     "Produk berhasil diperbarui",
-                                    Toast.LENGTH_SHORT
-                            ).show();
-
+                                    Toast.LENGTH_SHORT).show();
                             loadProducts();
 
                         } else {
-                            Toast.makeText(
-                                    MainActivity.this,
+                            Toast.makeText(MainActivity.this,
                                     "Gagal memperbarui produk",
-                                    Toast.LENGTH_SHORT
-                            ).show();
+                                    Toast.LENGTH_SHORT).show();
                         }
                     }
 
                     @Override
-                    public void onFailure(
-                            Call<ProductResponse> call,
-                            Throwable t) {
+                    public void onFailure(Call<ProductResponse> call, Throwable t) {
                         showConnectionError(t);
                     }
                 });
@@ -368,37 +366,27 @@ public class MainActivity extends AppCompatActivity {
                                 && response.body() != null
                                 && response.body().isSuccess()) {
 
-                            Toast.makeText(
-                                    MainActivity.this,
+                            Toast.makeText(MainActivity.this,
                                     "Produk berhasil dihapus",
-                                    Toast.LENGTH_SHORT
-                            ).show();
-
+                                    Toast.LENGTH_SHORT).show();
                             loadProducts();
 
                         } else {
-                            Toast.makeText(
-                                    MainActivity.this,
+                            Toast.makeText(MainActivity.this,
                                     "Gagal menghapus produk",
-                                    Toast.LENGTH_SHORT
-                            ).show();
+                                    Toast.LENGTH_SHORT).show();
                         }
                     }
 
                     @Override
-                    public void onFailure(
-                            Call<ProductResponse> call,
-                            Throwable t) {
+                    public void onFailure(Call<ProductResponse> call, Throwable t) {
                         showConnectionError(t);
                     }
                 });
     }
 
     private void showConnectionError(Throwable t) {
-        Toast.makeText(
-                this,
-                "Koneksi gagal: " + t.getMessage(),
-                Toast.LENGTH_LONG
-        ).show();
+        Toast.makeText(this, "Koneksi gagal: " + t.getMessage(),
+                Toast.LENGTH_LONG).show();
     }
 }
