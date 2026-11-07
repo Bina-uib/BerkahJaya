@@ -52,6 +52,19 @@
 
     </LinearLayout>
 
+    <Button
+        android:id="@+id/btnCategories"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Manajemen Kategori"
+        android:layout_marginTop="12dp" />
+
+    <Button
+        android:id="@+id/btnSuppliers"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Manajemen Supplier" />
+
     <!-- Search -->
     <EditText
         android:id="@+id/etSearch"
